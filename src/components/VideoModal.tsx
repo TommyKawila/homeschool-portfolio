@@ -2,13 +2,27 @@
 
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
+import type { ComponentType } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { motion } from "framer-motion";
 import { X } from "lucide-react";
 
-const ReactPlayer = dynamic(() => import("react-player").then((mod) => mod.default), { 
-  ssr: false 
-});
+/** Props for react-player (v3 uses `src`). Used to type the dynamic import. */
+type ReactPlayerProps = {
+  url?: string;
+  src?: string;
+  width?: string;
+  height?: string;
+  controls?: boolean;
+  playing?: boolean;
+  onError?: () => void;
+  className?: string;
+};
+
+const ReactPlayer = dynamic<ReactPlayerProps>(
+  () => import("react-player").then((mod) => mod.default as ComponentType<ReactPlayerProps>),
+  { ssr: false }
+);
 
 export function VideoModal({
   open,
@@ -50,7 +64,7 @@ export function VideoModal({
                 </div>
               ) : (
                 <ReactPlayer
-                  url={rawUrl}
+                  src={rawUrl}
                   width="100%"
                   height="100%"
                   controls
