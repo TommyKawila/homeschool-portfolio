@@ -1,0 +1,639 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
+import type { PortfolioSettings, CourseRow, ActivityRow, ReportSectionRow } from "@/lib/database.types";
+import { type ReportSectionsMap } from "@/lib/portfolio";
+import { STUDENT_SLUGS, STUDENTS } from "@/lib/students";
+import type { StudentSlug } from "@/lib/students";
+import { FileUploader } from "@/components/admin/FileUploader";
+import {
+  Save, GraduationCap, BookOpen, Sprout, Dumbbell, Home,
+  Plus, Trash2, Loader2, CheckCircle2, AlertCircle, LogOut, FileText,
+} from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { revalidatePortfolioPaths } from "@/app/actions";
+
+type Toast = { type: "ok" | "err"; msg: string } | null;
+
+const categoryMeta: Record<string, { label: string; icon: typeof Sprout }> = {
+  "agri-science": { label: "Agri-Science", icon: Sprout },
+  "adventure-fitness": { label: "Adventure & Fitness", icon: Dumbbell },
+  "life-skills": { label: "Life Skills", icon: Home },
+};
+
+function SectionHeading({ icon: Icon, children }: { icon: typeof Save; children: React.ReactNode }) {
+  return (
+    <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-300">
+      <Icon className="h-4 w-4 text-teal-400" />
+      {children}
+    </h2>
+  );
+}
+
+function GlassCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`rounded-xl border border-slate-500/25 bg-slate-800/50 p-4 backdrop-blur-md ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+function Label({ children }: { children: React.ReactNode }) {
+  return <label className="mb-1 block text-xs font-medium text-slate-400">{children}</label>;
+}
+
+function Input({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full rounded-lg border border-slate-500/30 bg-slate-700/50 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/30"
+    />
+  );
+}
+
+function Textarea({ value, onChange, placeholder, rows = 3 }: { value: string; onChange: (v: string) => void; placeholder?: string; rows?: number }) {
+  return (
+    <textarea
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      rows={rows}
+      className="w-full rounded-lg border border-slate-500/30 bg-slate-700/50 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/30"
+    />
+  );
+}
+
+const REPORT_SECTION_KEYS = ["integrated_skills", "wellness", "strengths", "future_plan", "signature"] as const;
+const REPORT_SECTION_LABELS: Record<(typeof REPORT_SECTION_KEYS)[number], string> = {
+  integrated_skills: "Integrated Skills",
+  wellness: "Wellness & Mental Health",
+  strengths: "Strengths",
+  future_plan: "Future Plans",
+  signature: "Parent Signature",
+};
+
+const defaultSettings = (slug: StudentSlug): PortfolioSettings => ({
+  id: 0,
+  student_slug: slug,
+  gpa: 4.0,
+  profile_photo_url: null,
+  presentation_video_url: null,
+  annual_report_summary_en: null,
+  annual_report_summary_th: null,
+  updated_at: "",
+});
+
+export default function AdminPage() {
+  const [selectedStudentSlug, setSelectedStudentSlug] = useState<StudentSlug>("mata");
+  const [settings, setSettings] = useState<PortfolioSettings | null>(null);
+  const [courses, setCourses] = useState<CourseRow[]>([]);
+  const [activities, setActivities] = useState<ActivityRow[]>([]);
+  const [reportSections, setReportSections] = useState<ReportSectionsMap>({});
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<Toast>(null);
+  const router = useRouter();
+
+  const showToast = (t: Toast) => { setToast(t); setTimeout(() => setToast(null), 3000); };
+
+  const load = useCallback(async (slug: StudentSlug) => {
+    if (!isSupabaseConfigured) {
+      setSettings(defaultSettings(slug));
+      setCourses([]);
+      setActivities([]);
+      setReportSections({});
+      return;
+    }
+    const sb = getSupabase();
+    const [sRes, cRes, aRes, rRes] = await Promise.all([
+      sb.from("portfolio_settings").select("*").eq("student_slug", slug).maybeSingle(),
+      sb.from("courses").select("*").eq("student_slug", slug).order("id"),
+      sb.from("activities").select("*").eq("student_slug", slug).order("sort_order"),
+      sb.from("report_sections").select("section_name, content_en, content_th").eq("student_slug", slug),
+    ]);
+    let settingsData = sRes.data as PortfolioSettings | null;
+    if (!settingsData && slug === "mata") {
+      const fallback = await sb.from("portfolio_settings").select("*").eq("id", 1).maybeSingle();
+      if (fallback.data) settingsData = { ...(fallback.data as PortfolioSettings), student_slug: "mata" };
+    }
+    setSettings(settingsData ?? defaultSettings(slug));
+    setCourses((cRes.data as unknown as CourseRow[]) ?? []);
+    setActivities((aRes.data as unknown as ActivityRow[]) ?? []);
+    if (rRes.data && !rRes.error) {
+      const map: ReportSectionsMap = {};
+      for (const row of rRes.data as Pick<ReportSectionRow, "section_name" | "content_en" | "content_th">[]) {
+        if (row.section_name) map[row.section_name] = { en: row.content_en ?? "", th: row.content_th ?? "" };
+      }
+      setReportSections(map);
+    } else {
+      setReportSections({});
+    }
+  }, []);
+
+  useEffect(() => {
+    load(selectedStudentSlug);
+  }, [load, selectedStudentSlug]);
+
+  const saveSettings = async () => {
+    if (!settings) return;
+    setSaving(true);
+    const sb = getSupabase();
+    const { id: _id, ...rest } = settings;
+    const savePayload: Record<string, unknown> = {
+      ...rest,
+      student_slug: selectedStudentSlug,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await sb
+      .from("portfolio_settings")
+      .upsert(savePayload, { onConflict: "student_slug" });
+    setSaving(false);
+    showToast(error ? { type: "err", msg: error.message } : { type: "ok", msg: "Settings saved" });
+  };
+
+  const saveCourse = async (c: CourseRow) => {
+    const payload: Record<string, unknown> = {
+      student_slug: selectedStudentSlug,
+      subject_en: c.subject_en,
+      subject_th: c.subject_th,
+      grade_en: c.grade_en,
+      grade_th: c.grade_th,
+      status: c.status,
+      progress: c.progress,
+      letter_grade: c.letter_grade,
+      completed_date_en: c.completed_date_en,
+      completed_date_th: c.completed_date_th,
+      certificate_url: c.certificate_url ?? null,
+    };
+    if (c.id > 0) payload.id = c.id;
+    const { data, error } = await getSupabase()
+      .from("courses")
+      .upsert(payload)
+      .select()
+      .single();
+    if (!error && data) {
+      setCourses((prev) =>
+        prev.map((x) => (x.id === c.id ? (data as CourseRow) : x))
+      );
+    }
+    showToast(error ? { type: "err", msg: error.message } : { type: "ok", msg: `Course "${c.subject_en}" saved` });
+  };
+
+  const deleteCourse = async (id: number) => {
+    const { error } = await getSupabase().from("courses").delete().eq("id", id);
+    if (!error) {
+      setCourses((prev) => prev.filter((c) => c.id !== id));
+      await revalidatePortfolioPaths();
+      router.refresh();
+    }
+    showToast(error ? { type: "err", msg: error.message } : { type: "ok", msg: "Course deleted" });
+  };
+
+  const addCourse = (status: "active" | "completed") => {
+    const temp: CourseRow = {
+      id: -Date.now(),
+      student_slug: selectedStudentSlug,
+      subject_en: "", subject_th: "", grade_en: "", grade_th: "",
+      status, progress: 0, letter_grade: "A",
+      completed_date_en: null, completed_date_th: null,
+      certificate_url: null,
+    };
+    setCourses((prev) => [...prev, temp]);
+  };
+
+  const updateCourse = (id: number, patch: Partial<CourseRow>) => {
+    setCourses((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  };
+
+  const saveActivity = async (a: ActivityRow) => {
+    const payload: Record<string, unknown> = {
+      student_slug: selectedStudentSlug,
+      category: a.category,
+      title_en: a.title_en,
+      title_th: a.title_th,
+      description_en: a.description_en,
+      description_th: a.description_th,
+      image_url: a.image_url ?? null,
+      video_url: a.video_url ?? null,
+      sort_order: a.sort_order,
+    };
+    if (a.id > 0) payload.id = a.id;
+    const { data, error } = await getSupabase()
+      .from("activities")
+      .upsert(payload)
+      .select()
+      .single();
+    if (!error && data) {
+      setActivities((prev) =>
+        prev.map((x) => (x.id === a.id ? (data as ActivityRow) : x))
+      );
+    }
+    showToast(error ? { type: "err", msg: error.message } : { type: "ok", msg: `Activity "${a.title_en}" saved` });
+  };
+
+  const deleteActivity = async (id: number) => {
+    if (id > 0) {
+      const { error } = await getSupabase().from("activities").delete().eq("id", id);
+      if (!error) {
+        setActivities((prev) => prev.filter((a) => a.id !== id));
+        await revalidatePortfolioPaths();
+        router.refresh();
+      }
+      showToast(error ? { type: "err", msg: error.message } : { type: "ok", msg: "Activity deleted" });
+    } else {
+      setActivities((prev) => prev.filter((a) => a.id !== id));
+      showToast({ type: "ok", msg: "Activity removed" });
+    }
+  };
+
+  const addActivity = (category: string) => {
+    const temp: ActivityRow = {
+      id: -Date.now(),
+      student_slug: selectedStudentSlug,
+      category: category as ActivityRow["category"],
+      title_en: "", title_th: "", description_en: "", description_th: "",
+      image_url: null, video_url: null, sort_order: activities.length,
+    };
+    setActivities((prev) => [...prev, temp]);
+  };
+
+  const updateActivity = (id: number, patch: Partial<ActivityRow>) => {
+    setActivities((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+  };
+
+  const updateReportSection = (key: (typeof REPORT_SECTION_KEYS)[number], en: string, th: string) => {
+    setReportSections((prev) => ({ ...prev, [key]: { en, th } }));
+  };
+
+  const saveReportSection = async (key: (typeof REPORT_SECTION_KEYS)[number]) => {
+    const section = reportSections[key] ?? { en: "", th: "" };
+    setSaving(true);
+    const { error } = await getSupabase()
+      .from("report_sections")
+      .upsert({
+        section_name: key,
+        student_slug: selectedStudentSlug,
+        content_en: section.en || null,
+        content_th: section.th || null,
+      } as Record<string, unknown>);
+    setSaving(false);
+    showToast(error ? { type: "err", msg: error.message } : { type: "ok", msg: `${REPORT_SECTION_LABELS[key]} saved` });
+  };
+
+  if (!settings) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[var(--bg)]">
+        <Loader2 className="h-6 w-6 animate-spin text-teal-400" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[var(--bg)]">
+      {toast && (
+        <div className={`fixed right-4 top-4 z-50 flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm shadow-lg backdrop-blur-md ${
+          toast.type === "ok"
+            ? "border-teal-500/40 bg-teal-900/60 text-teal-200"
+            : "border-red-500/40 bg-red-900/60 text-red-200"
+        }`}>
+          {toast.type === "ok" ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+          {toast.msg}
+        </div>
+      )}
+
+      <header className="sticky top-0 z-30 border-b border-slate-500/20 bg-slate-900/70 backdrop-blur-md">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
+          <h1 className="text-lg font-semibold text-slate-100">Admin Panel</h1>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-slate-400">
+              Student
+              <select
+                value={selectedStudentSlug}
+                onChange={(e) => setSelectedStudentSlug(e.target.value as StudentSlug)}
+                className="rounded-lg border border-slate-500/30 bg-slate-700/50 px-2 py-1.5 text-sm text-slate-200 focus:border-teal-500/50 focus:outline-none"
+              >
+                {STUDENT_SLUGS.map((s) => (
+                  <option key={s} value={s}>
+                    {STUDENTS[s].name.en}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Link href="/mata" className="text-sm text-teal-400 hover:text-teal-300">
+              ← Portfolio
+            </Link>
+            <button
+              onClick={async () => {
+                if (isSupabaseConfigured) {
+                  await getSupabase().auth.signOut();
+                }
+                router.push("/login");
+                router.refresh();
+              }}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-500/30 bg-slate-700/40 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-slate-600/50 hover:text-slate-100"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-4xl space-y-6 px-4 py-8">
+        {/* ── PROFILE & SETTINGS ── */}
+        <GlassCard>
+          <SectionHeading icon={GraduationCap}>Profile & Settings</SectionHeading>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <Label>Profile Photo</Label>
+              <FileUploader
+                bucket="portfolio"
+                folder="avatars"
+                pathFileName={`${selectedStudentSlug}-profile`}
+                currentUrl={settings.profile_photo_url}
+                onUploaded={(url) => setSettings({ ...settings, profile_photo_url: url })}
+              />
+            </div>
+            <div className="sm:col-span-2 space-y-3">
+              <div>
+                <Label>GPA</Label>
+                <Input
+                  value={String(settings.gpa)}
+                  onChange={(v) => setSettings({ ...settings, gpa: parseFloat(v) || 0 })}
+                  placeholder="4.00"
+                />
+              </div>
+              <div>
+                <Label>Presentation Video URL</Label>
+                <Input
+                  value={settings.presentation_video_url ?? ""}
+                  onChange={(v) => setSettings({ ...settings, presentation_video_url: v || null })}
+                  placeholder="https://youtube.com/watch?v=..."
+                />
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={saveSettings}
+            disabled={saving}
+            className="mt-4 flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-500 disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save Settings
+          </button>
+        </GlassCard>
+
+        {/* ── COURSES ── */}
+        {(["active", "completed"] as const).map((status) => {
+          const filtered = courses.filter((c) => c.status === status);
+          return (
+            <GlassCard key={status}>
+              <SectionHeading icon={BookOpen}>
+                {status === "active" ? "Active Courses" : "Completed Courses"}
+              </SectionHeading>
+              <div className="space-y-3">
+                {filtered.map((c) => (
+                  <div key={c.id} className="grid gap-2 rounded-lg border border-slate-500/20 bg-slate-700/30 p-3 sm:grid-cols-3">
+                    <div>
+                      <Label>Subject (EN)</Label>
+                      <Input value={c.subject_en} onChange={(v) => updateCourse(c.id, { subject_en: v })} />
+                    </div>
+                    <div>
+                      <Label>Subject (TH)</Label>
+                      <Input value={c.subject_th} onChange={(v) => updateCourse(c.id, { subject_th: v })} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label>Grade EN</Label>
+                        <Input value={c.grade_en} onChange={(v) => updateCourse(c.id, { grade_en: v })} placeholder="Grade 5" />
+                      </div>
+                      <div>
+                        <Label>Grade TH</Label>
+                        <Input value={c.grade_th} onChange={(v) => updateCourse(c.id, { grade_th: v })} placeholder="ป.5" />
+                      </div>
+                    </div>
+                    {status === "active" && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label>Progress %</Label>
+                          <Input value={String(c.progress)} onChange={(v) => updateCourse(c.id, { progress: parseInt(v) || 0 })} />
+                        </div>
+                        <div>
+                          <Label>Letter Grade</Label>
+                          <Input value={c.letter_grade} onChange={(v) => updateCourse(c.id, { letter_grade: v })} />
+                        </div>
+                      </div>
+                    )}
+                    {status === "completed" && (
+                      <>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label>Completed (EN)</Label>
+                            <Input value={c.completed_date_en ?? ""} onChange={(v) => updateCourse(c.id, { completed_date_en: v })} />
+                          </div>
+                          <div>
+                            <Label>Completed (TH)</Label>
+                            <Input value={c.completed_date_th ?? ""} onChange={(v) => updateCourse(c.id, { completed_date_th: v })} />
+                          </div>
+                        </div>
+                        <div className="sm:col-span-3">
+                          <Label>Certificate</Label>
+                          {c.certificate_url ? (
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1.5 rounded-lg border border-teal-500/30 bg-teal-500/10 px-3 py-1.5 text-xs font-medium text-teal-300">
+                                ✅ Certificate Linked
+                              </span>
+                              <a
+                                href={c.certificate_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-slate-400 underline hover:text-slate-200"
+                              >
+                                View
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => updateCourse(c.id, { certificate_url: null })}
+                                className="text-xs text-red-400 hover:text-red-300"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ) : (
+                            <FileUploader
+                              bucket="portfolio"
+                              folder="certificates"
+                              currentUrl={null}
+                              accept=".pdf,.jpg,.jpeg,.png,image/*"
+                              onUploaded={(url) => updateCourse(c.id, { certificate_url: url })}
+                            />
+                          )}
+                        </div>
+                      </>
+                    )}
+                    <div className="flex items-end gap-2 sm:col-span-3">
+                      <button onClick={() => saveCourse(c)} className="flex items-center gap-1 rounded-lg bg-teal-600/80 px-3 py-1.5 text-xs text-white hover:bg-teal-500">
+                        <Save className="h-3.5 w-3.5" /> Save
+                      </button>
+                      <button onClick={() => deleteCourse(c.id)} className="flex items-center gap-1 rounded-lg bg-red-600/30 px-3 py-1.5 text-xs text-red-300 hover:bg-red-600/50">
+                        <Trash2 className="h-3.5 w-3.5" /> Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => addCourse(status)}
+                className="mt-3 flex items-center gap-1 text-xs text-teal-400 hover:text-teal-300"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add {status === "active" ? "Active" : "Completed"} Course
+              </button>
+            </GlassCard>
+          );
+        })}
+
+        {/* ── ACTIVITIES ── */}
+        {Object.entries(categoryMeta).map(([catId, meta]) => {
+          const filtered = activities.filter((a) => a.category === catId);
+          const CatIcon = meta.icon;
+          return (
+            <GlassCard key={catId}>
+              <SectionHeading icon={CatIcon}>{meta.label}</SectionHeading>
+              <div className="space-y-4">
+                {filtered.map((a) => (
+                  <div key={a.id} className="rounded-lg border border-slate-500/20 bg-slate-700/30 p-3">
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <div>
+                        <Label>Title (EN)</Label>
+                        <Input value={a.title_en} onChange={(v) => updateActivity(a.id, { title_en: v })} />
+                      </div>
+                      <div>
+                        <Label>Title (TH)</Label>
+                        <Input value={a.title_th} onChange={(v) => updateActivity(a.id, { title_th: v })} />
+                      </div>
+                      <div>
+                        <Label>Description (EN)</Label>
+                        <Textarea value={a.description_en} onChange={(v) => updateActivity(a.id, { description_en: v })} rows={2} />
+                      </div>
+                      <div>
+                        <Label>Description (TH)</Label>
+                        <Textarea value={a.description_th} onChange={(v) => updateActivity(a.id, { description_th: v })} rows={2} />
+                      </div>
+                    </div>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      <div>
+                        <Label>Activity Photo</Label>
+                        <FileUploader
+                          bucket="portfolio"
+                          folder="activities"
+                          pathSubfolder={selectedStudentSlug}
+                          useFileNameInPath
+                          currentUrl={a.image_url}
+                          onUploaded={(url) => updateActivity(a.id, { image_url: url })}
+                        />
+                      </div>
+                      <div>
+                        <Label>YouTube / Video URL</Label>
+                        <Input
+                          value={a.video_url ?? ""}
+                          onChange={(v) => updateActivity(a.id, { video_url: v || null })}
+                          placeholder="https://youtube.com/watch?v=..."
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center gap-2">
+                      <button onClick={() => saveActivity(a)} className="flex items-center gap-1 rounded-lg bg-teal-600/80 px-3 py-1.5 text-xs text-white hover:bg-teal-500">
+                        <Save className="h-3.5 w-3.5" /> Save
+                      </button>
+                      <button onClick={() => deleteActivity(a.id)} className="flex items-center gap-1 rounded-lg bg-red-600/30 px-3 py-1.5 text-xs text-red-300 hover:bg-red-600/50">
+                        <Trash2 className="h-3.5 w-3.5" /> Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => addActivity(catId)}
+                className="mt-3 flex items-center gap-1 text-xs text-teal-400 hover:text-teal-300"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add Activity
+              </button>
+            </GlassCard>
+          );
+        })}
+
+        {/* ── REPORT CONTENT MANAGER ── */}
+        <GlassCard>
+          <SectionHeading icon={FileText}>Report Content Manager</SectionHeading>
+          <p className="mb-4 text-xs text-slate-500">
+            Edit content for the Annual Report page. One line per list item. Signature: first line = name, second = role.
+          </p>
+          <div className="space-y-4">
+            {REPORT_SECTION_KEYS.map((key) => {
+              const s = reportSections[key] ?? { en: "", th: "" };
+              return (
+                <div key={key} className="rounded-lg border border-slate-500/20 bg-slate-700/20 p-3">
+                  <h3 className="mb-2 text-xs font-medium text-slate-300">{REPORT_SECTION_LABELS[key]}</h3>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div>
+                      <Label>Content (EN)</Label>
+                      <Textarea value={s.en} onChange={(v) => updateReportSection(key, v, s.th)} rows={4} placeholder="English content..." />
+                    </div>
+                    <div>
+                      <Label>Content (TH)</Label>
+                      <Textarea value={s.th} onChange={(v) => updateReportSection(key, s.en, v)} rows={4} placeholder="เนื้อหาภาษาไทย..." />
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => saveReportSection(key)}
+                    disabled={saving}
+                    className="mt-2 flex items-center gap-1 rounded-lg bg-teal-600/80 px-3 py-1.5 text-xs text-white hover:bg-teal-500 disabled:opacity-50"
+                  >
+                    {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />} Save
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </GlassCard>
+
+        {/* ── ANNUAL REPORT EDITOR ── */}
+        <GlassCard>
+          <SectionHeading icon={BookOpen}>Annual Report Summary</SectionHeading>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label>Summary (EN)</Label>
+              <Textarea
+                value={settings.annual_report_summary_en ?? ""}
+                onChange={(v) => setSettings({ ...settings, annual_report_summary_en: v || null })}
+                rows={5}
+                placeholder="Annual report summary in English..."
+              />
+            </div>
+            <div>
+              <Label>Summary (TH)</Label>
+              <Textarea
+                value={settings.annual_report_summary_th ?? ""}
+                onChange={(v) => setSettings({ ...settings, annual_report_summary_th: v || null })}
+                rows={5}
+                placeholder="สรุปรายงานประจำปีภาษาไทย..."
+              />
+            </div>
+          </div>
+          <button
+            onClick={saveSettings}
+            disabled={saving}
+            className="mt-4 flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-500 disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save Report Summary
+          </button>
+        </GlassCard>
+      </main>
+    </div>
+  );
+}

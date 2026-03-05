@@ -1,0 +1,137 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0f172a;
+  --bg-card: rgba(15, 23, 42, 0.6);
+  --border: rgba(148, 163, 184, 0.2);
+  --border-glow: rgba(45, 212, 191, 0.35);
+  --text: #f1f5f9;
+  --muted: #94a3b8;
+  --accent: #2dd4bf;
+  --accent-soft: #14b8a6;
+  --violet: #a78bfa;
+  --violet-soft: rgba(167, 139, 250, 0.25);
+}
+
+@media print {
+  body,
+  .report-page,
+  .report-page * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .report-page .report-photo-keep-color,
+  .report-page .report-photo-keep-color * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .report-page {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 11px;
+    overflow: visible !important;
+  }
+
+  .report-page [class*="fixed"],
+  .report-page [class*="absolute"] {
+    position: relative !important;
+  }
+
+  .report-page main {
+    max-width: 100%;
+    padding: 0 8px;
+    overflow: visible !important;
+    background: #fff !important;
+    color: #000 !important;
+    min-height: calc(297mm - 16mm);
+  }
+
+  .report-card {
+    background: #fff !important;
+    backdrop-filter: none !important;
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .report-page .report-signature-block {
+    margin-top: auto;
+    padding-top: 8px;
+  }
+
+  @page {
+    size: A4;
+    margin: 8mm;
+  }
+}
+
+.glass {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+}
+
+.glass-glow {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-glow);
+  box-shadow: 0 0 24px rgba(45, 212, 191, 0.08);
+}
+
+.glass-glow-hover:hover {
+  border-color: rgba(45, 212, 191, 0.5);
+  box-shadow: 0 0 32px rgba(45, 212, 191, 0.12);
+}
+
+.glass-white {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.glass-violet {
+  background: rgba(167, 139, 250, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(167, 139, 250, 0.25);
+  box-shadow: 0 0 30px rgba(167, 139, 250, 0.12), 0 0 60px rgba(167, 139, 250, 0.06);
+}
+
+.glass-card {
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.glass-gold {
+  background: rgba(251, 191, 36, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 2px solid rgba(251, 191, 36, 0.35);
+  box-shadow: 0 0 24px rgba(251, 191, 36, 0.08);
+}
+
+.progress-glow {
+  box-shadow: 0 0 8px rgba(167, 139, 250, 0.4), 0 0 16px rgba(167, 139, 250, 0.15);
+}
+
+.profile-ring {
+  background: conic-gradient(
+    from 0deg,
+    rgba(167, 139, 250, 0.7),
+    rgba(45, 212, 191, 0.7),
+    rgba(236, 72, 153, 0.5),
+    rgba(167, 139, 250, 0.7)
+  );
+  padding: 3px;
+  border-radius: 9999px;
+}
