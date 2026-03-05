@@ -73,7 +73,7 @@ export const practicalSkills: SkillCategory[] = [
 ];
 
 export const annualReport = {
-  schoolName: { en: "Mata Panna Homeschool", th: "โฮมสคูลมาตาปัญญา" },
+  schoolName: { en: "Mata Panna Homeschool", th: "โฮมสคูลมาตาปันนา" },
   academicYear: { en: "Academic Year 2025–2026", th: "ปีการศึกษา 2568–2569" },
   studentLevel: { en: "Grade 4 Equivalent", th: "เทียบเท่าชั้นประถมศึกษาปีที่ 4" },
   gpaNote: { en: "GPA 4.00 — Consistent A/A+ in all subjects", th: "เกรดเฉลี่ย 4.00 — ได้เกรด A/A+ ทุกวิชา" },

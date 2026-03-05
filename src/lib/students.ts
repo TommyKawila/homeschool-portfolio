@@ -44,7 +44,7 @@ export const STUDENTS: Record<StudentSlug, StudentTheme> = {
   },
   punna: {
     slug: "punna",
-    name: { en: "Punna Kawila", th: "ปัญญา กาวิละ" },
+    name: { en: "Punna Kawila", th: "ปันนา กาวิละ" },
     age: 8,
     identity: {
       en: "Young explorer building skills through play and curiosity.",
