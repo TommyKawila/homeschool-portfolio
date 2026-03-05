@@ -44,10 +44,23 @@ function Label({ children }: { children: React.ReactNode }) {
   return <label className="mb-1 block text-xs font-medium text-slate-400">{children}</label>;
 }
 
-function Input({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+function Input({
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+  step,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: "text" | "number";
+  step?: string;
+}) {
   return (
     <input
-      type="text"
+      type={type}
+      step={step}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
@@ -99,7 +112,12 @@ export default function AdminPage() {
   const [reportSections, setReportSections] = useState<ReportSectionsMap>({});
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
+  const [gpaInput, setGpaInput] = useState("");
   const router = useRouter();
+
+  useEffect(() => {
+    if (settings != null) setGpaInput(String(settings.gpa ?? ""));
+  }, [settings]);
 
   const showToast = (t: Toast) => { setToast(t); setTimeout(() => setToast(null), 3000); };
 
@@ -142,9 +160,13 @@ export default function AdminPage() {
     setSaving(true);
     const sb = getSupabase();
     const selectedSlug = selectedStudentSlug;
+    const gpa = (() => {
+      const parsed = parseFloat(String(gpaInput ?? "").replace(",", "."));
+      return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : 0;
+    })();
     const payload = {
       student_slug: selectedSlug,
-      gpa: settings.gpa ?? 0,
+      gpa,
       profile_photo_url: settings.profile_photo_url ?? null,
       presentation_video_url: settings.presentation_video_url ?? null,
       annual_report_summary_th: settings.annual_report_summary_th ?? null,
@@ -155,6 +177,7 @@ export default function AdminPage() {
       parent_signature_en: settings.parent_signature_en ?? null,
       updated_at: new Date().toISOString(),
     };
+    console.log("Saving payload:", payload);
     const { data, error } = await sb
       .from("portfolio_settings")
       .upsert(payload, { onConflict: "student_slug" })
@@ -379,8 +402,10 @@ export default function AdminPage() {
               <div>
                 <Label>GPA</Label>
                 <Input
-                  value={String(settings.gpa)}
-                  onChange={(v) => setSettings({ ...settings, gpa: parseFloat(v) || 0 })}
+                  type="number"
+                  step="0.01"
+                  value={gpaInput}
+                  onChange={(v) => setGpaInput(v)}
                   placeholder="4.00"
                 />
               </div>
