@@ -34,13 +34,16 @@ export interface ReportSectionRow {
 }
 
 export interface PortfolioSettings {
-  id: number;
   student_slug: string | null;
   gpa: number;
   profile_photo_url: string | null;
   presentation_video_url: string | null;
   annual_report_summary_en: string | null;
   annual_report_summary_th: string | null;
+  future_plans_en: string | null;
+  future_plans_th: string | null;
+  parent_signature_en: string | null;
+  parent_signature_th: string | null;
   updated_at: string;
 }
 

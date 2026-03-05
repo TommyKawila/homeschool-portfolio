@@ -1,34 +1,50 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { STUDENTS } from "@/lib/students";
 
-export default function Home() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace("/mata");
-  }, [router]);
-
+export default function LobbyPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-[var(--bg)] px-4">
-      <p className="text-slate-400">Redirecting…</p>
-      <div className="flex gap-3">
-        <Link
-          href="/mata"
-          className="rounded-lg border border-slate-500/30 bg-slate-800/50 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-700/50"
-        >
-          {STUDENTS.mata.name.en}
-        </Link>
-        <Link
-          href="/punna"
-          className="rounded-lg border border-slate-500/30 bg-slate-800/50 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-700/50"
-        >
-          {STUDENTS.punna.name.en}
-        </Link>
-      </div>
+    <div className="flex min-h-screen flex-col bg-stone-50">
+      <main className="flex flex-1 flex-col items-center justify-center px-4 py-12">
+        <h1 className="mb-12 text-center text-2xl font-light tracking-wide text-stone-700 sm:text-3xl">
+          Kawila Sisters&apos; Learning Journey
+        </h1>
+
+        <div className="grid w-full max-w-2xl grid-cols-1 gap-6 sm:grid-cols-2">
+          <Link
+            href="/mata"
+            className="group flex flex-col items-center rounded-2xl border border-stone-200 bg-white p-8 shadow-sm transition-all duration-200 hover:scale-[1.02] hover:border-amber-200 hover:shadow-lg hover:shadow-amber-500/10"
+          >
+            <div className="mb-4 h-24 w-24 overflow-hidden rounded-full border-2 border-stone-200 bg-stone-100 transition-colors group-hover:border-amber-300">
+              <span className="flex h-full w-full items-center justify-center text-3xl font-light text-amber-600/80">
+                {STUDENTS.mata.name.en.charAt(0)}
+              </span>
+            </div>
+            <span className="text-lg font-medium text-stone-700 group-hover:text-amber-700">
+              Mata&apos;s Universe
+            </span>
+          </Link>
+
+          <Link
+            href="/punna"
+            className="group flex flex-col items-center rounded-2xl border border-stone-200 bg-white p-8 shadow-sm transition-all duration-200 hover:scale-[1.02] hover:border-cyan-200 hover:shadow-lg hover:shadow-cyan-500/10"
+          >
+            <div className="mb-4 h-24 w-24 overflow-hidden rounded-full border-2 border-stone-200 bg-stone-100 transition-colors group-hover:border-cyan-300">
+              <span className="flex h-full w-full items-center justify-center text-3xl font-light text-cyan-600/80">
+                {STUDENTS.punna.name.en.charAt(0)}
+              </span>
+            </div>
+            <span className="text-lg font-medium text-stone-700 group-hover:text-cyan-700">
+              Punna&apos;s Universe
+            </span>
+          </Link>
+        </div>
+      </main>
+
+      <footer className="py-6 text-center text-xs text-stone-400">
+        Homeschooling with Love by Tommy &amp; Family
+      </footer>
     </div>
   );
 }

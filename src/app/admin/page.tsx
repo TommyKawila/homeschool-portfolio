@@ -78,13 +78,16 @@ const REPORT_SECTION_LABELS: Record<(typeof REPORT_SECTION_KEYS)[number], string
 };
 
 const defaultSettings = (slug: StudentSlug): PortfolioSettings => ({
-  id: 0,
   student_slug: slug,
   gpa: 4.0,
   profile_photo_url: null,
   presentation_video_url: null,
   annual_report_summary_en: null,
   annual_report_summary_th: null,
+  future_plans_en: null,
+  future_plans_th: null,
+  parent_signature_en: null,
+  parent_signature_th: null,
   updated_at: "",
 });
 
@@ -115,11 +118,7 @@ export default function AdminPage() {
       sb.from("activities").select("*").eq("student_slug", slug).order("sort_order"),
       sb.from("report_sections").select("section_name, content_en, content_th").eq("student_slug", slug),
     ]);
-    let settingsData = sRes.data as PortfolioSettings | null;
-    if (!settingsData && slug === "mata") {
-      const fallback = await sb.from("portfolio_settings").select("*").eq("id", 1).maybeSingle();
-      if (fallback.data) settingsData = { ...(fallback.data as PortfolioSettings), student_slug: "mata" };
-    }
+    const settingsData = sRes.data as PortfolioSettings | null;
     setSettings(settingsData ?? defaultSettings(slug));
     setCourses((cRes.data as unknown as CourseRow[]) ?? []);
     setActivities((aRes.data as unknown as ActivityRow[]) ?? []);
@@ -142,22 +141,39 @@ export default function AdminPage() {
     if (!settings) return;
     setSaving(true);
     const sb = getSupabase();
-    const { id: _id, ...rest } = settings;
-    const savePayload: Record<string, unknown> = {
-      ...rest,
-      student_slug: selectedStudentSlug,
+    const selectedSlug = selectedStudentSlug;
+    const payload = {
+      student_slug: selectedSlug,
+      gpa: settings.gpa ?? 0,
+      profile_photo_url: settings.profile_photo_url ?? null,
+      presentation_video_url: settings.presentation_video_url ?? null,
+      annual_report_summary_th: settings.annual_report_summary_th ?? null,
+      annual_report_summary_en: settings.annual_report_summary_en ?? null,
+      future_plans_th: settings.future_plans_th ?? null,
+      future_plans_en: settings.future_plans_en ?? null,
+      parent_signature_th: settings.parent_signature_th ?? null,
+      parent_signature_en: settings.parent_signature_en ?? null,
       updated_at: new Date().toISOString(),
     };
-    const { error } = await sb
+    const { data, error } = await sb
       .from("portfolio_settings")
-      .upsert(savePayload, { onConflict: "student_slug" });
+      .upsert(payload, { onConflict: "student_slug" })
+      .select()
+      .maybeSingle();
     setSaving(false);
-    showToast(error ? { type: "err", msg: error.message } : { type: "ok", msg: "Settings saved" });
+    if (error) {
+      showToast({ type: "err", msg: error.message });
+      return;
+    }
+    if (data) setSettings(data as unknown as PortfolioSettings);
+    else load(selectedSlug);
+    showToast({ type: "ok", msg: "Settings saved" });
   };
 
   const saveCourse = async (c: CourseRow) => {
+    const slug = selectedStudentSlug;
     const payload: Record<string, unknown> = {
-      student_slug: selectedStudentSlug,
+      student_slug: slug,
       subject_en: c.subject_en,
       subject_th: c.subject_th,
       grade_en: c.grade_en,
@@ -172,7 +188,7 @@ export default function AdminPage() {
     if (c.id > 0) payload.id = c.id;
     const { data, error } = await getSupabase()
       .from("courses")
-      .upsert(payload)
+      .upsert(payload, { onConflict: "id" })
       .select()
       .single();
     if (!error && data) {
@@ -210,8 +226,9 @@ export default function AdminPage() {
   };
 
   const saveActivity = async (a: ActivityRow) => {
+    const slug = selectedStudentSlug;
     const payload: Record<string, unknown> = {
-      student_slug: selectedStudentSlug,
+      student_slug: slug,
       category: a.category,
       title_en: a.title_en,
       title_th: a.title_th,
@@ -224,7 +241,7 @@ export default function AdminPage() {
     if (a.id > 0) payload.id = a.id;
     const { data, error } = await getSupabase()
       .from("activities")
-      .upsert(payload)
+      .upsert(payload, { onConflict: "id" })
       .select()
       .single();
     if (!error && data) {

@@ -31,14 +31,7 @@ export async function fetchPortfolioData(studentSlug: string) {
     sb.from("activities").select("*").eq("student_slug", slug).order("sort_order"),
   ]);
 
-  const s = !sRes.error && sRes.data ? (sRes.data as PortfolioSettings) : null;
-  // Fallback: try by id=1 if no row for slug (backwards compat)
-  let settings = s;
-  if (!settings && slug === "mata") {
-    const fallback = await sb.from("portfolio_settings").select("*").eq("id", 1).maybeSingle();
-    if (!fallback.error && fallback.data)
-      settings = { ...(fallback.data as PortfolioSettings), student_slug: "mata" };
-  }
+  const settings = !sRes.error && sRes.data ? (sRes.data as PortfolioSettings) : null;
   const courseRows: CourseRow[] = !cRes.error && cRes.data ? (cRes.data as CourseRow[]) : [];
   const activityRows: ActivityRow[] = !aRes.error && aRes.data ? (aRes.data as ActivityRow[]) : [];
 
