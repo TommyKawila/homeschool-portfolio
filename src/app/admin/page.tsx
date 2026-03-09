@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import type { PortfolioSettings, CourseRow, ActivityRow, ReportSectionRow } from "@/lib/database.types";
 import { type ReportSectionsMap } from "@/lib/portfolio";
+
+type LocalActivityRow = Omit<ActivityRow, "id"> & { id: number | string };
 import { STUDENT_SLUGS, STUDENTS } from "@/lib/students";
 import type { StudentSlug } from "@/lib/students";
 import { FileUploader } from "@/components/admin/FileUploader";
@@ -108,9 +110,10 @@ export default function AdminPage() {
   const [selectedStudentSlug, setSelectedStudentSlug] = useState<StudentSlug>("mata");
   const [settings, setSettings] = useState<PortfolioSettings | null>(null);
   const [courses, setCourses] = useState<CourseRow[]>([]);
-  const [activities, setActivities] = useState<ActivityRow[]>([]);
+  const [activities, setActivities] = useState<LocalActivityRow[]>([]);
   const [reportSections, setReportSections] = useState<ReportSectionsMap>({});
   const [saving, setSaving] = useState(false);
+  const [savingActivityId, setSavingActivityId] = useState<number | string | null>(null);
   const [toast, setToast] = useState<Toast>(null);
   const [gpaInput, setGpaInput] = useState("");
   const router = useRouter();
@@ -155,6 +158,17 @@ export default function AdminPage() {
     load(selectedStudentSlug);
   }, [load, selectedStudentSlug]);
 
+  const fetchData = useCallback(async (slug: StudentSlug) => {
+    if (!isSupabaseConfigured) return;
+    const sb = getSupabase();
+    const [cRes, aRes] = await Promise.all([
+      sb.from("courses").select("*").eq("student_slug", slug).order("id"),
+      sb.from("activities").select("*").eq("student_slug", slug).order("sort_order"),
+    ]);
+    setCourses((cRes.data as CourseRow[]) ?? []);
+    setActivities((aRes.data as LocalActivityRow[]) ?? []);
+  }, []);
+
   const saveSettings = async () => {
     if (!settings) return;
     setSaving(true);
@@ -195,37 +209,39 @@ export default function AdminPage() {
 
   const saveCourse = async (c: CourseRow) => {
     const slug = selectedStudentSlug;
-    const payload: Record<string, unknown> = {
-      student_slug: slug,
-      subject_en: c.subject_en,
-      subject_th: c.subject_th,
-      grade_en: c.grade_en,
-      grade_th: c.grade_th,
-      status: c.status,
-      progress: c.progress,
-      letter_grade: c.letter_grade,
-      completed_date_en: c.completed_date_en,
-      completed_date_th: c.completed_date_th,
-      certificate_url: c.certificate_url ?? null,
-    };
-    if (c.id > 0) payload.id = c.id;
-    const { data, error } = await getSupabase()
+    const isTemp = typeof c.id === "string" && c.id.startsWith("temp-");
+    const hasDbId = c.id != null && !isTemp;
+    const { id: _id, ...dataToSave } = c;
+    const payload: Record<string, unknown> = { ...dataToSave, student_slug: slug };
+    if (hasDbId) payload.id = c.id;
+    console.log("Payload being sent (course):", payload);
+    const { error } = await getSupabase()
       .from("courses")
       .upsert(payload, { onConflict: "id" })
       .select()
       .single();
-    if (!error && data) {
-      setCourses((prev) =>
-        prev.map((x) => (x.id === c.id ? (data as CourseRow) : x))
-      );
+    if (!error) {
+      await fetchData(slug);
+      router.refresh();
     }
     showToast(error ? { type: "err", msg: error.message } : { type: "ok", msg: `Course "${c.subject_en}" saved` });
   };
 
   const deleteCourse = async (id: number) => {
-    const { error } = await getSupabase().from("courses").delete().eq("id", id);
-    if (!error) {
+    if (!window.confirm("Delete this course permanently?")) return;
+    if (id >= 1e10) {
       setCourses((prev) => prev.filter((c) => c.id !== id));
+      showToast({ type: "ok", msg: "Course removed" });
+      return;
+    }
+    const slug = selectedStudentSlug;
+    const { error } = await getSupabase()
+      .from("courses")
+      .delete()
+      .eq("id", id)
+      .eq("student_slug", slug);
+    if (!error) {
+      await fetchData(slug);
       await revalidatePortfolioPaths();
       router.refresh();
     }
@@ -234,12 +250,13 @@ export default function AdminPage() {
 
   const addCourse = (status: "active" | "completed") => {
     const temp: CourseRow = {
-      id: -Date.now(),
+      id: Date.now(),
       student_slug: selectedStudentSlug,
       subject_en: "", subject_th: "", grade_en: "", grade_th: "",
       status, progress: 0, letter_grade: "A",
       completed_date_en: null, completed_date_th: null,
       certificate_url: null,
+      images: null,
     };
     setCourses((prev) => [...prev, temp]);
   };
@@ -248,60 +265,80 @@ export default function AdminPage() {
     setCourses((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
   };
 
-  const saveActivity = async (a: ActivityRow) => {
+  const saveActivity = async (a: LocalActivityRow) => {
+    if (savingActivityId !== null) return;
+    setSavingActivityId(a.id);
     const slug = selectedStudentSlug;
+    const isTemp = typeof a.id === "string" && a.id.startsWith("temp-");
+    const hasDbId = a.id != null && !isTemp;
+    const imagesArr = (a.images ?? []).filter(Boolean).slice(0, 5);
     const payload: Record<string, unknown> = {
       student_slug: slug,
+      title_en: a.title_en ?? "",
+      title_th: a.title_th ?? "",
       category: a.category,
-      title_en: a.title_en,
-      title_th: a.title_th,
-      description_en: a.description_en,
-      description_th: a.description_th,
-      image_url: a.image_url ?? null,
+      description_en: a.description_en ?? "",
+      description_th: a.description_th ?? "",
+      images: imagesArr,
       video_url: a.video_url ?? null,
       sort_order: a.sort_order,
     };
-    if (a.id > 0) payload.id = a.id;
-    const { data, error } = await getSupabase()
+    if (hasDbId) payload.id = a.id;
+    console.log("Payload being sent:", payload);
+    const supabase = getSupabase();
+    const { error } = await supabase
       .from("activities")
       .upsert(payload, { onConflict: "id" })
       .select()
       .single();
-    if (!error && data) {
-      setActivities((prev) =>
-        prev.map((x) => (x.id === a.id ? (data as ActivityRow) : x))
-      );
+    setSavingActivityId(null);
+    if (error) {
+      const msg = error.code === "23505" ? "Already exists" : error.message;
+      showToast({ type: "err", msg });
+      return;
     }
-    showToast(error ? { type: "err", msg: error.message } : { type: "ok", msg: `Activity "${a.title_en}" saved` });
+    await fetchData(slug);
+    router.refresh();
+    showToast({ type: "ok", msg: `Activity "${a.title_en}" saved` });
   };
 
-  const deleteActivity = async (id: number) => {
-    if (id > 0) {
-      const { error } = await getSupabase().from("activities").delete().eq("id", id);
-      if (!error) {
-        setActivities((prev) => prev.filter((a) => a.id !== id));
-        await revalidatePortfolioPaths();
-        router.refresh();
-      }
-      showToast(error ? { type: "err", msg: error.message } : { type: "ok", msg: "Activity deleted" });
-    } else {
-      setActivities((prev) => prev.filter((a) => a.id !== id));
+  const deleteActivity = async (activityId: number | string) => {
+    if (!window.confirm("Delete this activity permanently?")) return;
+    const isTemp = typeof activityId === "string" && activityId.startsWith("temp-");
+    if (isTemp) {
+      setActivities((prev) => prev.filter((a) => a.id !== activityId));
       showToast({ type: "ok", msg: "Activity removed" });
+      return;
     }
+    const slug = selectedStudentSlug;
+    const supabase = getSupabase();
+    const { error } = await supabase
+      .from("activities")
+      .delete()
+      .eq("id", activityId as number)
+      .eq("student_slug", slug);
+    if (error) {
+      showToast({ type: "err", msg: error.message });
+      return;
+    }
+    await fetchData(slug);
+    await revalidatePortfolioPaths();
+    router.refresh();
+    showToast({ type: "ok", msg: "Activity deleted" });
   };
 
   const addActivity = (category: string) => {
-    const temp: ActivityRow = {
-      id: -Date.now(),
+    const temp: LocalActivityRow = {
+      id: `temp-${Date.now()}`,
       student_slug: selectedStudentSlug,
       category: category as ActivityRow["category"],
       title_en: "", title_th: "", description_en: "", description_th: "",
-      image_url: null, video_url: null, sort_order: activities.length,
+      images: [], video_url: null, sort_order: activities.length,
     };
     setActivities((prev) => [...prev, temp]);
   };
 
-  const updateActivity = (id: number, patch: Partial<ActivityRow>) => {
+  const updateActivity = (id: number | string, patch: Partial<LocalActivityRow>) => {
     setActivities((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
   };
 
@@ -311,15 +348,17 @@ export default function AdminPage() {
 
   const saveReportSection = async (key: (typeof REPORT_SECTION_KEYS)[number]) => {
     const section = reportSections[key] ?? { en: "", th: "" };
+    const slug = selectedStudentSlug;
     setSaving(true);
+    const payload = {
+      student_slug: slug,
+      section_name: key,
+      content_en: section.en || null,
+      content_th: section.th || null,
+    };
     const { error } = await getSupabase()
       .from("report_sections")
-      .upsert({
-        section_name: key,
-        student_slug: selectedStudentSlug,
-        content_en: section.en || null,
-        content_th: section.th || null,
-      } as Record<string, unknown>);
+      .upsert(payload, { onConflict: "student_slug,section_name" });
     setSaving(false);
     showToast(error ? { type: "err", msg: error.message } : { type: "ok", msg: `${REPORT_SECTION_LABELS[key]} saved` });
   };
@@ -517,6 +556,30 @@ export default function AdminPage() {
                         </div>
                       </>
                     )}
+                    <div className="sm:col-span-3">
+                      <Label>Images (up to 5)</Label>
+                      <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                        {[0, 1, 2, 3, 4].map((i) => {
+                          const urls = c.images ?? [];
+                          const currentUrl = urls[i] ?? null;
+                          return (
+                            <div key={i}>
+                              <FileUploader
+                                bucket="portfolio"
+                                folder="certificates"
+                                currentUrl={currentUrl}
+                                accept=".jpg,.jpeg,.png,image/*"
+                                onUploaded={(url) => {
+                                  const next = [...urls.slice(0, 5)];
+                                  next[i] = url;
+                                  updateCourse(c.id, { images: next.filter(Boolean) });
+                                }}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                     <div className="flex items-end gap-2 sm:col-span-3">
                       <button onClick={() => saveCourse(c)} className="flex items-center gap-1 rounded-lg bg-teal-600/80 px-3 py-1.5 text-xs text-white hover:bg-teal-500">
                         <Save className="h-3.5 w-3.5" /> Save
@@ -566,18 +629,35 @@ export default function AdminPage() {
                         <Textarea value={a.description_th} onChange={(v) => updateActivity(a.id, { description_th: v })} rows={2} />
                       </div>
                     </div>
-                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                      <div>
-                        <Label>Activity Photo</Label>
-                        <FileUploader
-                          bucket="portfolio"
-                          folder="activities"
-                          pathSubfolder={selectedStudentSlug}
-                          useFileNameInPath
-                          currentUrl={a.image_url}
-                          onUploaded={(url) => updateActivity(a.id, { image_url: url })}
-                        />
+                    <div className="mt-2">
+                      <Label>Images (up to 5)</Label>
+                      <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                        {[0, 1, 2, 3, 4].map((i) => {
+                          const urls = a.images ?? [];
+                          const currentUrl = urls[i] ?? null;
+                          return (
+                            <div key={i}>
+                              <FileUploader
+                                bucket="portfolio"
+                                folder="activities"
+                                pathSubfolder={selectedStudentSlug}
+                                useFileNameInPath
+                                currentUrl={currentUrl}
+                                onUploaded={(url) => {
+                                  const next = [...urls.slice(0, 5)];
+                                  next[i] = url;
+                                  const newImages = next.filter(Boolean);
+                                  updateActivity(a.id, { images: newImages });
+                                  const updated = { ...a, images: newImages };
+                                  saveActivity(updated);
+                                }}
+                              />
+                            </div>
+                          );
+                        })}
                       </div>
+                    </div>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
                       <div>
                         <Label>YouTube / Video URL</Label>
                         <Input
@@ -588,8 +668,16 @@ export default function AdminPage() {
                       </div>
                     </div>
                     <div className="mt-3 flex items-center gap-2">
-                      <button onClick={() => saveActivity(a)} className="flex items-center gap-1 rounded-lg bg-teal-600/80 px-3 py-1.5 text-xs text-white hover:bg-teal-500">
-                        <Save className="h-3.5 w-3.5" /> Save
+                      <button
+                        onClick={() => saveActivity(a)}
+                        disabled={savingActivityId !== null}
+                        className="flex items-center gap-1 rounded-lg bg-teal-600/80 px-3 py-1.5 text-xs text-white hover:bg-teal-500 disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {savingActivityId === a.id ? (
+                          <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...</>
+                        ) : (
+                          <><Save className="h-3.5 w-3.5" /> Save</>
+                        )}
                       </button>
                       <button onClick={() => deleteActivity(a.id)} className="flex items-center gap-1 rounded-lg bg-red-600/30 px-3 py-1.5 text-xs text-red-300 hover:bg-red-600/50">
                         <Trash2 className="h-3.5 w-3.5" /> Delete

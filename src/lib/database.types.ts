@@ -60,6 +60,7 @@ export interface CourseRow {
   completed_date_en: string | null;
   completed_date_th: string | null;
   certificate_url: string | null;
+  images: string[] | null;
 }
 
 export interface ActivityRow {
@@ -70,7 +71,7 @@ export interface ActivityRow {
   title_th: string;
   description_en: string;
   description_th: string;
-  image_url: string | null;
+  images: string[] | null;
   video_url: string | null;
   sort_order: number;
 }

@@ -1,19 +1,32 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { motion } from "framer-motion";
-import { X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 export function CertificateModal({
   open,
   onOpenChange,
   url,
+  urls,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  url: string | null;
+  url?: string | null;
+  urls?: string[];
 }) {
-  if (!url) return null;
+  const list = (urls?.length ? urls : url ? [url] : []) as string[];
+  const [index, setIndex] = useState(0);
+  const current = list[index] ?? null;
+  useEffect(() => {
+    if (open) setIndex(0);
+  }, [open, list.length]);
+  if (!current && !list.length) return null;
+
+  const go = (delta: number) => {
+    setIndex((i) => Math.max(0, Math.min(list.length - 1, i + delta)));
+  };
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -32,7 +45,33 @@ export function CertificateModal({
                 Certificate of completion
               </Dialog.Description>
               <div className="flex h-16 flex-none items-center justify-between px-3">
-                <span aria-hidden className="w-9" />
+                {list.length > 1 ? (
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => go(-1)}
+                      disabled={index <= 0}
+                      className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-700/50 hover:text-slate-200 disabled:opacity-40"
+                      aria-label="Previous"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <span className="text-xs text-slate-400">
+                      {index + 1} / {list.length}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => go(1)}
+                      disabled={index >= list.length - 1}
+                      className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-700/50 hover:text-slate-200 disabled:opacity-40"
+                      aria-label="Next"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </div>
+                ) : (
+                  <span aria-hidden className="w-9" />
+                )}
                 <Dialog.Close asChild>
                   <button
                     className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-700/50 hover:text-slate-200"
@@ -46,7 +85,8 @@ export function CertificateModal({
                 <div className="flex flex-1 items-center justify-center">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={url}
+                    key={current}
+                    src={current}
                     alt="Certificate"
                     className="max-h-full max-w-full object-contain"
                   />

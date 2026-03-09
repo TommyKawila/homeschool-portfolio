@@ -50,18 +50,13 @@ const themeProgressText: Record<string, string> = {
 };
 
 const themeSparkle: Record<string, string> = {
-  mata: "text-teal-400",
-  punna: "text-pink-400",
+  mata: "text-fuchsia-400",
+  punna: "text-emerald-400",
 };
 
 const themeWatchBtn: Record<string, string> = {
-  mata: "border-teal-500/40 bg-teal-500/10 text-teal-300 hover:border-teal-400/50 hover:bg-teal-500/20 hover:shadow-[0_0_28px_rgba(45,212,191,0.2)] shadow-[0_0_20px_rgba(45,212,191,0.15)]",
-  punna: "border-cyan-500/40 bg-cyan-500/10 text-cyan-300 hover:border-cyan-400/50 hover:bg-cyan-500/20 hover:shadow-[0_0_28px_rgba(34,211,238,0.2)] shadow-[0_0_20px_rgba(34,211,238,0.15)]",
-};
-
-const themeReportBtn: Record<string, string> = {
-  mata: "border-pink-500/40 bg-pink-500/10 text-pink-300 hover:border-pink-400/50 hover:bg-pink-500/20",
-  punna: "border-pink-500/40 bg-pink-500/10 text-pink-300 hover:border-pink-400/50 hover:bg-pink-500/20",
+  mata: "border-violet-500/40 bg-violet-500/10 text-violet-300 hover:border-fuchsia-400/50 hover:bg-violet-500/20 hover:shadow-[0_0_28px_rgba(167,139,250,0.25)] shadow-[0_0_20px_rgba(167,139,250,0.15)]",
+  punna: "border-cyan-500/40 bg-cyan-500/10 text-cyan-300 hover:border-emerald-400/50 hover:bg-cyan-500/20 hover:shadow-[0_0_28px_rgba(34,211,238,0.25)] shadow-[0_0_20px_rgba(34,211,238,0.15)]",
 };
 
 const themeInitial: Record<string, string> = {
@@ -81,6 +76,7 @@ export default function StudentDashboard() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoOpen, setVideoOpen] = useState(false);
   const [certUrl, setCertUrl] = useState<string | null>(null);
+  const [galleryUrls, setGalleryUrls] = useState<string[] | null>(null);
   const [certOpen, setCertOpen] = useState(false);
   const { gpaValue, presentationVideo, profilePhoto, active, completed, skills } =
     usePortfolio(studentSlug);
@@ -92,6 +88,13 @@ export default function StudentDashboard() {
 
   const openCertificate = (url: string) => {
     setCertUrl(url);
+    setGalleryUrls(null);
+    setCertOpen(true);
+  };
+
+  const openGallery = (urls: string[]) => {
+    setGalleryUrls(urls);
+    setCertUrl(null);
     setCertOpen(true);
   };
 
@@ -210,8 +213,10 @@ export default function StudentDashboard() {
           animate="show"
           className="mb-14 flex flex-col items-center text-center"
         >
-          <motion.div variants={fadeUp} className="relative mb-6">
-            <div className="profile-ring">
+          <motion.div variants={fadeUp} className="relative mb-6 mx-auto w-fit">
+            <div className="relative h-32 w-32 sm:h-40 sm:w-40">
+              <div className={`absolute inset-0 rounded-full opacity-90 ${student.profileAtmosphere}`} aria-hidden />
+              <div className="profile-ring relative">
               <div className="relative h-32 w-32 overflow-hidden rounded-full bg-slate-800 sm:h-40 sm:w-40">
                 {profilePhoto ? (
                   <Image
@@ -227,6 +232,7 @@ export default function StudentDashboard() {
                     {student.name.en.charAt(0)}
                   </div>
                 )}
+              </div>
               </div>
             </div>
             <motion.div
@@ -299,7 +305,7 @@ export default function StudentDashboard() {
             )}
             <Link
               href={`/${fallbackSlug}/report`}
-              className={`inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-medium transition ${themeReportBtn[fallbackSlug]}`}
+              className={`inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-medium transition ${student.reportBtn}`}
             >
               <ScrollText className="h-4 w-4" />
               {labels.annualReport[lang]}
@@ -355,14 +361,19 @@ export default function StudentDashboard() {
                       {course.letterGrade}
                     </span>
                   </div>
-                  <div className="relative h-2 overflow-hidden rounded-full bg-slate-700/60">
+                  <div className="relative h-2.5 overflow-hidden rounded-full bg-slate-800/80">
                     <motion.div
                       initial={{ width: 0 }}
                       whileInView={{ width: `${course.progress}%` }}
                       viewport={{ once: true }}
                       transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
-                      className={`progress-glow h-full rounded-full bg-gradient-to-r ${student.progressBar}`}
-                    />
+                      className={`progress-glow relative h-full rounded-full bg-gradient-to-r drop-shadow-[0_0_8px_rgba(255,255,255,0.3)] ${student.progressBarShadow} ${student.progressBar}`}
+                    >
+                      <div
+                        className="pointer-events-none absolute inset-y-0 right-0 w-12 rounded-r-full bg-gradient-to-r from-transparent to-white/80"
+                        aria-hidden
+                      />
+                    </motion.div>
                   </div>
                   <p className={`mt-2 text-right text-sm font-semibold ${themeProgressText[fallbackSlug]}`}>
                     {course.progress}%
@@ -443,6 +454,7 @@ export default function StudentDashboard() {
                   lang={lang}
                   onPlayVideo={openVideo}
                   onViewImage={openCertificate}
+                  onViewImages={openGallery}
                 />
               </motion.div>
             ))}
@@ -455,6 +467,7 @@ export default function StudentDashboard() {
         open={certOpen}
         onOpenChange={setCertOpen}
         url={certUrl}
+        urls={galleryUrls ?? undefined}
       />
     </div>
   );

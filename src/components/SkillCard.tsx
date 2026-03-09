@@ -11,11 +11,13 @@ export function SkillCard({
   lang,
   onPlayVideo,
   onViewImage,
+  onViewImages,
 }: {
   category: SkillCategory;
   lang: Lang;
   onPlayVideo?: (url: string) => void;
   onViewImage?: (url: string) => void;
+  onViewImages?: (urls: string[]) => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -48,15 +50,21 @@ export function SkillCard({
             className="overflow-hidden border-t border-slate-500/20"
           >
             <ul className="space-y-0 divide-y divide-slate-500/15">
-              {category.items.map((item) => {
-                const hasMedia = (item.image && onViewImage) || (item.videoUrl && onPlayVideo);
+              {category.items.map((item, index) => {
+                const images = item.images ?? [];
+                const hasImages = images.length > 0 && (onViewImages || onViewImage);
+                const hasMedia = hasImages || (item.videoUrl && onPlayVideo);
                 return (
-                  <li key={item.title.en} className="px-5 py-3">
+                  <li key={item.id != null ? String(item.id) : `skill-${index}`} className="px-5 py-3">
                     <div className="flex gap-3">
-                      {item.image && (
-                        <div className="h-16 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-slate-700/50">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={item.image} alt={item.title[lang]} className="h-full w-full object-cover" />
+                      {images.length > 0 && (
+                        <div className="flex h-16 w-28 flex-shrink-0 gap-0.5 overflow-hidden rounded-lg bg-slate-700/50">
+                          {images.slice(0, 5).map((src, i) => (
+                            <div key={i} className="min-w-0 flex-1 overflow-hidden">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={src} alt="" className="h-full w-full object-cover" />
+                            </div>
+                          ))}
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
@@ -64,10 +72,14 @@ export function SkillCard({
                         <p className="mt-0.5 text-sm text-slate-400">{item.description[lang]}</p>
                         {hasMedia && (
                           <div className="mt-2 flex items-center gap-2 print:hidden">
-                            {item.image && onViewImage && (
+                            {hasImages && (
                               <button
                                 type="button"
-                                onClick={(e) => { e.stopPropagation(); onViewImage(item.image!); }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (onViewImages && images.length) onViewImages(images);
+                                  else if (onViewImage && images[0]) onViewImage(images[0]);
+                                }}
                                 className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-xs font-medium text-slate-300 backdrop-blur-sm transition hover:bg-white/20 hover:text-slate-100"
                                 aria-label={labels.viewPhoto[lang]}
                               >

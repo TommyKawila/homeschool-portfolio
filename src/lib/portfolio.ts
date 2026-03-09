@@ -132,9 +132,10 @@ export async function fetchPortfolioData(studentSlug: string) {
         items: activityRows
           .filter((a) => a.category === id)
           .map((a) => ({
+            id: a.id,
             title: { en: a.title_en, th: a.title_th },
             description: { en: a.description_en, th: a.description_th },
-            image: a.image_url ?? undefined,
+            images: Array.isArray(a.images) && a.images.length > 0 ? a.images : [],
             videoUrl: a.video_url ?? undefined,
           })),
       }))

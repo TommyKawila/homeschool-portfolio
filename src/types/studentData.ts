@@ -18,9 +18,10 @@ export type ActiveCourse = {
 };
 
 export type SkillItem = {
+  id?: number | string;
   title: Bilingual;
   description: Bilingual;
-  image?: string;
+  images?: string[];
   videoUrl?: string;
 };
 

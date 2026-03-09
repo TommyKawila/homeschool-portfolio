@@ -13,8 +13,11 @@ export interface StudentTheme {
   badgeBg: string;
   badgeText: string;
   progressBar: string;
+  progressBarShadow: string;
   cardGlow: string;
   welcomeGradient: string;
+  reportBtn: string;
+  profileAtmosphere: string;
 }
 
 export const STUDENT_SLUGS: StudentSlug[] = ["mata", "punna"];
@@ -38,9 +41,12 @@ export const STUDENTS: Record<StudentSlug, StudentTheme> = {
     badgeBorder: "border-amber-400/50",
     badgeBg: "bg-amber-400/15",
     badgeText: "text-amber-300",
-    progressBar: "from-violet-500 to-violet-400",
-    cardGlow: "hover:border-violet-400/30 hover:shadow-[0_0_30px_rgba(167,139,250,0.1)]",
-    welcomeGradient: "from-violet-300 via-amber-200 to-amber-300",
+    progressBar: "from-violet-300 via-fuchsia-400 to-white",
+    progressBarShadow: "shadow-[0_0_20px_rgba(192,38,211,0.8)]",
+    cardGlow: "hover:border-violet-400/30 hover:shadow-[0_0_30px_rgba(167,139,250,0.2)]",
+    welcomeGradient: "from-violet-400 via-fuchsia-400 to-pink-400",
+    reportBtn: "border-pink-400/50 bg-pink-500/10 text-pink-300 hover:border-pink-400/60 hover:bg-pink-500/20",
+    profileAtmosphere: "bg-[radial-gradient(ellipse_80%_80%_at_50%_50%,rgba(167,139,250,0.18),transparent_70%)]",
   },
   punna: {
     slug: "punna",
@@ -60,9 +66,12 @@ export const STUDENTS: Record<StudentSlug, StudentTheme> = {
     badgeBorder: "border-cyan-400/50",
     badgeBg: "bg-cyan-400/15",
     badgeText: "text-cyan-300",
-    progressBar: "from-cyan-500 to-pink-400",
-    cardGlow: "hover:border-cyan-400/30 hover:shadow-[0_0_30px_rgba(34,211,238,0.15)]",
-    welcomeGradient: "from-cyan-300 via-pink-200 to-pink-400",
+    progressBar: "from-cyan-300 via-emerald-400 to-white",
+    progressBarShadow: "shadow-[0_0_20px_rgba(34,211,238,0.8)]",
+    cardGlow: "hover:border-cyan-400/30 hover:shadow-[0_0_30px_rgba(34,211,238,0.2)]",
+    welcomeGradient: "from-cyan-400 via-emerald-400 to-blue-400",
+    reportBtn: "border-cyan-500/40 bg-cyan-500/10 text-cyan-300 hover:border-cyan-400/50 hover:bg-cyan-500/20",
+    profileAtmosphere: "bg-[radial-gradient(ellipse_80%_80%_at_50%_50%,rgba(34,211,238,0.18),transparent_70%)]",
   },
 };
 
