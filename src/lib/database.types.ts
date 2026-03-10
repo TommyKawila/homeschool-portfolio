@@ -48,7 +48,7 @@ export interface PortfolioSettings {
 }
 
 export interface CourseRow {
-  id: number;
+  id: string | number;
   student_slug: string | null;
   subject_en: string;
   subject_th: string;
@@ -64,7 +64,7 @@ export interface CourseRow {
 }
 
 export interface ActivityRow {
-  id: number;
+  id: string | number;
   student_slug: string | null;
   category: "agri-science" | "adventure-fitness" | "life-skills";
   title_en: string;

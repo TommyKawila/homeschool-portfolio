@@ -209,7 +209,7 @@ export default function AdminPage() {
 
   const saveCourse = async (c: CourseRow) => {
     const slug = selectedStudentSlug;
-    const isTemp = typeof c.id === "string" && c.id.startsWith("temp-");
+    const isTemp = typeof c.id === "string" && (c.id as string).startsWith("temp-");
     const hasDbId = c.id != null && !isTemp;
     const { id: _id, ...dataToSave } = c;
     const payload: Record<string, unknown> = { ...dataToSave, student_slug: slug };
@@ -227,9 +227,10 @@ export default function AdminPage() {
     showToast(error ? { type: "err", msg: error.message } : { type: "ok", msg: `Course "${c.subject_en}" saved` });
   };
 
-  const deleteCourse = async (id: number) => {
+  const deleteCourse = async (id: number | string) => {
     if (!window.confirm("Delete this course permanently?")) return;
-    if (id >= 1e10) {
+    const isTemp = (typeof id === "string" && (id as string).startsWith("temp-")) || (typeof id === "number" && id >= 1e10);
+    if (isTemp) {
       setCourses((prev) => prev.filter((c) => c.id !== id));
       showToast({ type: "ok", msg: "Course removed" });
       return;
@@ -261,7 +262,7 @@ export default function AdminPage() {
     setCourses((prev) => [...prev, temp]);
   };
 
-  const updateCourse = (id: number, patch: Partial<CourseRow>) => {
+  const updateCourse = (id: number | string, patch: Partial<CourseRow>) => {
     setCourses((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
   };
 
@@ -269,7 +270,7 @@ export default function AdminPage() {
     if (savingActivityId !== null) return;
     setSavingActivityId(a.id);
     const slug = selectedStudentSlug;
-    const isTemp = typeof a.id === "string" && a.id.startsWith("temp-");
+    const isTemp = typeof a.id === "string" && (a.id as string).startsWith("temp-");
     const hasDbId = a.id != null && !isTemp;
     const imagesArr = (a.images ?? []).filter(Boolean).slice(0, 5);
     const payload: Record<string, unknown> = {
@@ -304,7 +305,7 @@ export default function AdminPage() {
 
   const deleteActivity = async (activityId: number | string) => {
     if (!window.confirm("Delete this activity permanently?")) return;
-    const isTemp = typeof activityId === "string" && activityId.startsWith("temp-");
+    const isTemp = typeof activityId === "string" && (activityId as string).startsWith("temp-");
     if (isTemp) {
       setActivities((prev) => prev.filter((a) => a.id !== activityId));
       showToast({ type: "ok", msg: "Activity removed" });
@@ -315,7 +316,7 @@ export default function AdminPage() {
     const { error } = await supabase
       .from("activities")
       .delete()
-      .eq("id", activityId as number)
+      .eq("id", activityId)
       .eq("student_slug", slug);
     if (error) {
       showToast({ type: "err", msg: error.message });
