@@ -10,7 +10,7 @@ import { STUDENT_SLUGS, STUDENTS } from "@/lib/students";
 import type { StudentSlug } from "@/lib/students";
 import { FileUploader } from "@/components/admin/FileUploader";
 import {
-  Save, GraduationCap, BookOpen, Sprout, Dumbbell, Home,
+  Save, GraduationCap, BookOpen, Sprout, Dumbbell, Home, Award,
   Plus, Trash2, Loader2, CheckCircle2, AlertCircle, LogOut, FileText,
 } from "lucide-react";
 import Link from "next/link";
@@ -19,10 +19,14 @@ import { revalidatePortfolioPaths } from "@/app/actions";
 
 type Toast = { type: "ok" | "err"; msg: string } | null;
 
+const isUuid = (id: unknown) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id));
+
 const categoryMeta: Record<string, { label: string; icon: typeof Sprout }> = {
   "agri-science": { label: "Agri-Science", icon: Sprout },
   "adventure-fitness": { label: "Adventure & Fitness", icon: Dumbbell },
   "life-skills": { label: "Life Skills", icon: Home },
+  "proud_achievements": { label: "Proud Achievements", icon: Award },
 };
 
 function SectionHeading({ icon: Icon, children }: { icon: typeof Save; children: React.ReactNode }) {
@@ -83,12 +87,13 @@ function Textarea({ value, onChange, placeholder, rows = 3 }: { value: string; o
   );
 }
 
-const REPORT_SECTION_KEYS = ["integrated_skills", "wellness", "strengths", "future_plan", "signature"] as const;
+const REPORT_SECTION_KEYS = ["integrated_skills", "wellness", "strengths", "future_plan", "proud_achievements", "signature"] as const;
 const REPORT_SECTION_LABELS: Record<(typeof REPORT_SECTION_KEYS)[number], string> = {
   integrated_skills: "Integrated Skills",
   wellness: "Wellness & Mental Health",
   strengths: "Strengths",
   future_plan: "Future Plans",
+  proud_achievements: "Proud Achievements",
   signature: "Parent Signature",
 };
 
@@ -210,7 +215,7 @@ export default function AdminPage() {
   const saveCourse = async (c: CourseRow) => {
     const slug = selectedStudentSlug;
     const isTemp = typeof c.id === "string" && (c.id as string).startsWith("temp-");
-    const hasDbId = c.id != null && !isTemp;
+    const hasDbId = c.id != null && !isTemp && isUuid(c.id);
     const { id: _id, ...dataToSave } = c;
     const payload: Record<string, unknown> = { ...dataToSave, student_slug: slug };
     if (hasDbId) payload.id = c.id;
@@ -271,7 +276,7 @@ export default function AdminPage() {
     setSavingActivityId(a.id);
     const slug = selectedStudentSlug;
     const isTemp = typeof a.id === "string" && (a.id as string).startsWith("temp-");
-    const hasDbId = a.id != null && !isTemp;
+    const hasDbId = a.id != null && !isTemp && isUuid(a.id);
     const imagesArr = (a.images ?? []).filter(Boolean).slice(0, 5);
     const payload: Record<string, unknown> = {
       student_slug: slug,

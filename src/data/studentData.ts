@@ -70,6 +70,11 @@ export const practicalSkills: SkillCategory[] = [
       { title: { en: "Personal responsibility", th: "ความรับผิดชอบส่วนตัว" }, description: { en: "Self-care and accountability.", th: "ดูแลตนเองและรับผิดชอบการกระทำ" }, videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
     ],
   },
+  {
+    id: "proud_achievements",
+    title: { en: "Proud Achievements", th: "ความภาคภูมิใจ" },
+    items: [],
+  },
 ];
 
 export const annualReport = {

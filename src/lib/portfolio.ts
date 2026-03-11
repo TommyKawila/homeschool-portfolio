@@ -34,6 +34,8 @@ export async function fetchPortfolioData(studentSlug: string) {
   const settings = !sRes.error && sRes.data ? (sRes.data as PortfolioSettings) : null;
   const courseRows: CourseRow[] = !cRes.error && cRes.data ? (cRes.data as CourseRow[]) : [];
   const activityRows: ActivityRow[] = !aRes.error && aRes.data ? (aRes.data as ActivityRow[]) : [];
+  // eslint-disable-next-line no-console -- debug: verify activities from Supabase
+  console.log("[Portfolio] activities raw:", activityRows?.length ?? 0, activityRows);
 
   // eslint-disable-next-line no-console -- debug: raw DB rows
   console.log("Raw Database Rows:", courseRows);
@@ -123,6 +125,7 @@ export async function fetchPortfolioData(studentSlug: string) {
     "agri-science": { title: { en: "Agri-Science", th: "เกษตรศาสตร์" } },
     "adventure-fitness": { title: { en: "Adventure & Fitness", th: "ผจญภัยและฟิตเนส" } },
     "life-skills": { title: { en: "Life Skills", th: "ทักษะชีวิต" } },
+    "proud_achievements": { title: { en: "Proud Achievements", th: "ความภาคภูมิใจ" } },
   };
 
   const skills: SkillCategory[] = activityRows.length

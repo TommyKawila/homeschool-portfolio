@@ -66,7 +66,7 @@ export interface CourseRow {
 export interface ActivityRow {
   id: string | number;
   student_slug: string | null;
-  category: "agri-science" | "adventure-fitness" | "life-skills";
+  category: "agri-science" | "adventure-fitness" | "life-skills" | "proud_achievements";
   title_en: string;
   title_th: string;
   description_en: string;

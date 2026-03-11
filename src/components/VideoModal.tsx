@@ -7,6 +7,18 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { motion } from "framer-motion";
 import { X } from "lucide-react";
 
+function getYouTubeID(url: string): string | null {
+  const s = url.trim();
+  if (!s) return null;
+  const watchMatch = s.match(/(?:youtube\.com\/watch\?v=|youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/);
+  if (watchMatch) return watchMatch[1];
+  const shortMatch = s.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+  if (shortMatch) return shortMatch[1];
+  const shortsMatch = s.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/);
+  if (shortsMatch) return shortsMatch[1];
+  return null;
+}
+
 /** Props for react-player (v3 uses `src`). Used to type the dynamic import. */
 type ReactPlayerProps = {
   url?: string;
@@ -35,14 +47,18 @@ export function VideoModal({
 }) {
   const [error, setError] = useState(false);
 
-  if (!url) return null;
-
-  const rawUrl = url.trim();
-  const showFallback = error || !rawUrl;
-
   useEffect(() => {
     setError(false);
   }, [url]);
+
+  const rawUrl = url?.trim() ?? "";
+  const videoId = getYouTubeID(rawUrl);
+  const embedUrl = videoId
+    ? `https://www.youtube.com/embed/${videoId}?rel=0&autoplay=1`
+    : rawUrl;
+  const showFallback = error || !rawUrl;
+
+  if (!url) return null;
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -62,9 +78,17 @@ export function VideoModal({
                 <div className="flex flex-col items-center justify-center gap-2 p-6 text-center text-slate-400">
                   <p className="text-sm">Video not available</p>
                 </div>
+              ) : videoId ? (
+                <iframe
+                  src={embedUrl}
+                  title="Video player"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="absolute left-0 top-0 h-full w-full"
+                />
               ) : (
                 <ReactPlayer
-                  src={rawUrl}
+                  url={embedUrl}
                   width="100%"
                   height="100%"
                   controls
